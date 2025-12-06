@@ -1,0 +1,30 @@
+# Strictly for development and debugging purposes
+version: '3.8'
+
+name: askobi-api-dev
+services:
+  # Database service
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: askobi_user
+      POSTGRES_PASSWORD: askobi_password
+      POSTGRES_DB: askobi_db
+    ports:
+    # Expose Postgres on localhost:5458
+      - "5458:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+  
+  # Redis service for caching and background tasks
+  # Expose Redis on localhost:6383
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6383:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  db_data:
+  redis_data:

@@ -1,0 +1,67 @@
+{
+  "project-config": [
+    "./pyproject.toml",
+    "./poetry.lock",
+    "./.gitignore",
+    "./DEVELOPMENT.md",
+    "./README.md"
+  ],
+  "infra-dev": ["./docker-compose.yml"],
+  "infra-prod": ["./gunicorn.conf.py"],
+  "db-migrations": [
+    "./alembic.ini",
+    "./alembic/env.py",
+    "./alembic/README",
+    "./alembic/script.py.mako",
+    "./alembic/versions/76dbc5bf64ee_initial.py"
+  ],
+  "docs": [
+    "./docs/architecture.md",
+    "./docs/architecture.pdf",
+    "./docs/hosting_and_infra.md",
+    "./docs/hosting_and_infra.pdf"
+  ],
+  "python-package": [
+    "./src/__init__.py",
+    "./src/auth/__init__.py",
+    "./src/middleware/__init__.py",
+    "./src/models/__init__.py",
+    "./src/repositories/__init__.py",
+    "./src/schemas/__init__.py",
+    "./src/services/__init__.py",
+    "./src/utils/__init__.py"
+  ],
+  "app-entrypoint": ["./src/main.py"],
+  "settings-config": ["./src/settings.py"],
+  "auth-routing": ["./src/auth/router.py"],
+  "auth-dependencies": ["./src/auth/dependencies.py"],
+  "services": [
+    "./src/services/auth_service.py",
+    "./src/services/session_service.py",
+    "./src/services/user_service.py"
+  ],
+  "repositories": ["./src/repositories/user_repository.py"],
+  "models": [
+    "./src/models/audit.py",
+    "./src/models/users.py",
+    "./src/models/utils.py"
+  ],
+  "schemas": [
+    "./src/schemas/auth.py",
+    "./src/schemas/base.py",
+    "./src/schemas/users.py"
+  ],
+  "utils": [
+    "./src/utils/authorization.py",
+    "./src/utils/common.py",
+    "./src/utils/constants.py",
+    "./src/utils/db.py",
+    "./src/utils/files.py",
+    "./src/utils/logging.py",
+    "./src/utils/openapi.py",
+    "./src/utils/redis.py",
+    "./src/utils/sqltypes.py",
+    "./src/utils/time.py",
+    "./src/utils/tokens.py"
+  ]
+}

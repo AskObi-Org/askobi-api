@@ -1,0 +1,75 @@
+{
+  "routing": {
+    "required_patterns": {
+      "router-inclusion": "The FastAPI app is built in src/main.py:get_app() and includes routers via app.include_router(router).",
+      "auth-prefix": "Auth endpoints live under APIRouter(prefix=\"/auth\")."
+    },
+    "architectural_constraints": {
+      "no-business-logic-in-router": "Routers should mostly orchestrate: parse request, call service, return schema; avoid embedding complex auth/session rules directly in endpoint handlers."
+    }
+  },
+  "auth": {
+    "required_patterns": {
+      "oauth2-bearer": "Auth uses OAuth2PasswordBearer token extraction.",
+      "jwt-access": "Access tokens are JWTs containing sub (user_id) and sid (session_id).",
+      "refresh-rotation": "Refresh tokens are rotated; only hashed refresh tokens are stored."
+    },
+    "architectural_constraints": {
+      "session-check": "All protected endpoints must validate session existence via Redis (session:{user_id}:{session_id}) before trusting the JWT.",
+      "token-version": "Protected access must reject tokens when redis_session.token_version != user.token_version."
+    }
+  },
+  "data-layer": {
+    "required_patterns": {
+      "async-sqlalchemy": "Database access is SQLAlchemy async; sessions are AsyncSession.",
+      "repository-layer": "DB queries are encapsulated in repositories (e.g., UserRepository, SessionRepository)."
+    },
+    "architectural_constraints": {
+      "async-only": "Avoid blocking DB calls or sync SQLAlchemy engine usage in request paths."
+    }
+  },
+  "session-cache": {
+    "required_patterns": {
+      "redis-session-store": "Redis stores session data keyed by session:{user_id}:{session_id} with TTL.",
+      "db-source-of-truth": "Postgres stores device sessions for enumeration and management UI; Redis is a fast validation cache."
+    },
+    "architectural_constraints": {
+      "revoke-consistency": "Revoking a session should delete Redis key and delete the DB session row."
+    }
+  },
+  "configuration": {
+    "required_patterns": {
+      "pydantic-settings": "Settings are loaded from src/conf/.env via pydantic-settings BaseSettings.",
+      "derived-properties": "Derived properties include postgres_dsn and redis_url."
+    },
+    "architectural_constraints": {
+      "single-settings-class": "New settings should be added to src/settings.py rather than scattered env parsing."
+    }
+  },
+  "logging": {
+    "required_patterns": {
+      "structlog": "Logging is configured with structlog and stdlib integration.",
+      "correlation-id": "Requests bind correlation_id into structlog contextvars."
+    },
+    "architectural_constraints": {
+      "structured-logs": "Prefer logger.info('message', key=value) rather than string formatting so logs remain queryable."
+    }
+  },
+  "openapi": {
+    "required_patterns": {
+      "custom-openapi-generator": "OpenAPI schema generation is centralized in src/utils/openapi.py and registered in configure_production_app()."
+    },
+    "architectural_constraints": {
+      "docs-endpoints": "Swagger/ReDoc routes are mounted in src/main.py under /swagger and /redoc (docs_url/redoc_url are disabled in FastAPI constructor)."
+    }
+  },
+  "migrations": {
+    "required_patterns": {
+      "alembic-autogenerate": "Alembic uses Model.metadata from src/models/utils.py as target_metadata.",
+      "pydantic-jsonb-render": "Alembic render_item maps PydanticJSON to postgresql.JSONB(astext_type=sa.Text())."
+    },
+    "architectural_constraints": {
+      "metadata-conventions": "Constraint/index naming conventions are defined in src/models/utils.py:my_metadata and should remain stable to avoid migration churn."
+    }
+  }
+}

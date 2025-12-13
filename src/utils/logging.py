@@ -22,6 +22,9 @@ RendererType = TypeVar("RendererType")
 # Define a type alias for BoundLogger from structlog
 Logger = structlog.stdlib.BoundLogger
 
+_LOGGING_CONFIGURED = False
+
+
 class MsgpackHandler(logging.handlers.SocketHandler):
     """
     A logging handler that sends log records serialized with MessagePack over a socket.
@@ -43,7 +46,7 @@ class MsgpackHandler(logging.handlers.SocketHandler):
         if "_logger" in record.__dict__:  # added by structlog
             del record.__dict__["_logger"]
         return msgpack.packb(record.__dict__, default=self.msgpack_encoder)
-    
+
 
 class Logging[RendererType]:
     """
@@ -100,8 +103,15 @@ class Logging[RendererType]:
 
     @classmethod
     def get_third_party_loggers(cls, settings: Settings) -> list[str]:
-        loggers_list = ["logfire", "asyncio"] + cls.debug_loggers(settings)
-        loggers_list.append("uvicorn" if not settings.is_production() else "uvicorn.error")
+        loggers_list = [
+            "logfire",
+            "asyncio",
+            "redis",  # keep app redis logs enabled
+            "db",  # keep app db logs enabled
+        ] + cls.debug_loggers(settings)
+        loggers_list.append(
+            "uvicorn" if not settings.is_production() else "uvicorn.error"
+        )
         return loggers_list
 
     @classmethod
@@ -121,7 +131,9 @@ class Logging[RendererType]:
         logging.getLogger("paramiko.transport").setLevel(logging.CRITICAL + 1)
 
     @classmethod
-    def configure_stdlib(cls, *, settings: Settings, logfire: bool, logserver: bool = False) -> None:
+    def configure_stdlib(
+        cls, *, settings: Settings, logfire: bool, logserver: bool = False
+    ) -> None:
         cls.configure_third_party()
         level = cls.get_level(settings)
         console_formatter = structlog.stdlib.ProcessorFormatter(
@@ -146,12 +158,20 @@ class Logging[RendererType]:
         for logger_name in logging.root.manager.loggerDict:
             logger = logging.getLogger(logger_name)
             is_enabled = logger_name in third_party_loggers
-            is_third_party_child = any(logger_name.startswith(parent + ".") for parent in third_party_loggers)
+            is_third_party_child = any(
+                logger_name.startswith(parent + ".") for parent in third_party_loggers
+            )
             if is_enabled or is_third_party_child:
-                logger.setLevel(cls.get_custom_level(level, logger_name) if is_enabled else logging.NOTSET)
+                logger.setLevel(
+                    cls.get_custom_level(level, logger_name)
+                    if is_enabled
+                    else logging.NOTSET
+                )
                 logger.handlers.clear()
                 logger.propagate = True
-                if logger_name.startswith("uvicorn") or logger_name.startswith("sqlalchemy.engine"):  # for better DX
+                if logger_name.startswith("uvicorn") or logger_name.startswith(
+                    "sqlalchemy.engine"
+                ):  # for better DX
                     logger.addHandler(console_handler)
                     logger.propagate = False
             else:
@@ -162,7 +182,9 @@ class Logging[RendererType]:
         root_logger.propagate = False
         if logserver:
             root_logger.addHandler(console_handler)
-            file_handler = cls.configure_file_logging(settings=settings, formatter=file_formatter, level=level)
+            file_handler = cls.configure_file_logging(
+                settings=settings, formatter=file_formatter, level=level
+            )
             if file_handler is not None:
                 root_logger.addHandler(file_handler)
         else:
@@ -181,9 +203,15 @@ class Logging[RendererType]:
         )
 
     @classmethod
-    def configure(cls, *, settings: Settings, logserver: bool = False, logfire: bool = False) -> None:
+    def configure(
+        cls, *, settings: Settings, logserver: bool = False, logfire: bool = False
+    ) -> None:
+        global _LOGGING_CONFIGURED
+        if _LOGGING_CONFIGURED:
+            return
         cls.configure_stdlib(settings=settings, logserver=logserver, logfire=logfire)
         cls.configure_structlog(logfire=logfire)
+        _LOGGING_CONFIGURED = True
 
     @staticmethod
     def timed_log_namer(default_name: str) -> str:
@@ -208,11 +236,15 @@ class Logging[RendererType]:
 class Development(Logging[structlog.dev.ConsoleRenderer]):
     @classmethod
     def get_renderer(cls) -> structlog.dev.ConsoleRenderer:
-        return structlog.dev.ConsoleRenderer(colors=True, exception_formatter=plain_traceback, pad_level=False)
+        return structlog.dev.ConsoleRenderer(
+            colors=True, exception_formatter=plain_traceback, pad_level=False
+        )
 
     @classmethod
     def get_file_renderer(cls) -> structlog.dev.ConsoleRenderer:
-        return structlog.dev.ConsoleRenderer(colors=False, exception_formatter=plain_traceback, pad_level=False)
+        return structlog.dev.ConsoleRenderer(
+            colors=False, exception_formatter=plain_traceback, pad_level=False
+        )
 
 
 # TODO: implement it one day
@@ -229,7 +261,9 @@ class Development(Logging[structlog.dev.ConsoleRenderer]):
 Production = Development
 
 
-def configure(*, settings: Settings, logfire: bool = False, logserver: bool = False) -> None:
+def configure(
+    *, settings: Settings, logfire: bool = False, logserver: bool = False
+) -> None:
     if settings.is_testing():
         Development.configure(settings=settings, logserver=logserver, logfire=False)
     elif settings.is_development():

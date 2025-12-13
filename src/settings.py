@@ -77,9 +77,11 @@ class Settings(BaseSettings):
     )
 
     # Use explicit loopback IP to avoid hostname resolution issues on Windows
+    REDIS_URL: str | None = Field(default=None, validation_alias="REDIS_URL")
     REDIS_HOST: str = "127.0.0.1"
     REDIS_PORT: int = 6383
     REDIS_DB: int = 0
+    REDIS_PASSWORD: str | None = Field(default=None, validation_alias="REDIS_PASSWORD")
 
     SENTRY_DSN: str | None = None
 
@@ -118,7 +120,10 @@ class Settings(BaseSettings):
 
     @property
     def redis_url(self) -> str:
-        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+        if self.REDIS_URL:
+            return self.REDIS_URL
+        password = f":{self.REDIS_PASSWORD}@" if self.REDIS_PASSWORD else ""
+        return f"redis://{password}{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
 
     @field_validator("DB_DATABASE", mode="before")
     @classmethod

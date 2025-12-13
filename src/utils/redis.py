@@ -1,9 +1,13 @@
 import json
 from typing import Any, Optional
+
 import redis.asyncio as redis
+
 from src.settings import Settings
+from src.utils.logging import get_logger
 
 settings = Settings()
+logger = get_logger("redis")
 
 redis_pool: Optional[redis.ConnectionPool] = None
 
@@ -11,16 +15,23 @@ redis_pool: Optional[redis.ConnectionPool] = None
 async def get_redis_client() -> redis.Redis:
     global redis_pool
     if redis_pool is None:
-        redis_pool = redis.ConnectionPool(
-            host=settings.REDIS_HOST,
-            port=settings.REDIS_PORT,
-            db=settings.REDIS_DB,
-            decode_responses=True,
-            max_connections=10,
-            socket_connect_timeout=5,
-            socket_keepalive=True,
-        )
-    return redis.Redis(connection_pool=redis_pool)
+        try:
+            redis_pool = redis.ConnectionPool.from_url(
+                settings.redis_url,
+                decode_responses=True,
+                max_connections=10,
+                socket_connect_timeout=5,
+                socket_keepalive=True,
+            )
+            logger.info("Initialized Redis connection pool", url=settings.redis_url)
+        except Exception as exc:  # noqa: BLE001
+            logger.error(
+                "Failed to initialize Redis pool", url=settings.redis_url, exc_info=exc
+            )
+            raise
+    client = redis.Redis(connection_pool=redis_pool)
+    logger.debug("Redis client ready", url=settings.redis_url)
+    return client
 
 
 async def close_redis_client():

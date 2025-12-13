@@ -30,6 +30,7 @@ from src.settings import Settings
 from src.utils.common import excepthook_handler, handle_event_loop_exception
 from src.utils.db import AsyncSession
 from src.utils.openapi import get_openapi_parameters, set_openapi_generator
+from src.utils.redis import get_redis_client
 
 logger = get_logger("api")
 
@@ -40,6 +41,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     asyncio.get_running_loop().set_exception_handler(
         lambda *args, **kwargs: handle_event_loop_exception(logger, *args, **kwargs)
     )
+
+    logger.info("Starting dependency warmup")
+    try:
+        client = await get_redis_client()
+        await client.ping()
+        logger.info("Redis ping successful")
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Redis ping failed", exc_info=exc)
+    else:
+        logger.info("Finished dependency warmup")
 
     yield
 

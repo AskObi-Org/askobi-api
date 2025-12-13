@@ -12,6 +12,10 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from src.settings import Settings
+from src.utils.logging import get_logger
+
+
+logger = get_logger("db")
 
 
 # Factory to create an AsyncEngine with common settings for the application
@@ -24,22 +28,37 @@ def create_async_engine_core(
     pool_recycle: int | None = None,
     debug: bool = False,
 ) -> AsyncEngine:
-    return _create_async_engine(
+    engine = _create_async_engine(
         dsn,
         echo=debug,
-        connect_args={"server_settings": {"application_name": application_name}} if application_name else {},
+        connect_args=(
+            {"server_settings": {"application_name": application_name}}
+            if application_name
+            else {}
+        ),
         pool_size=pool_size,
         pool_recycle=pool_recycle,
     )
+    logger.info(
+        "Initialized database engine",
+        dsn=dsn,
+        application_name=application_name,
+        pool_size=pool_size,
+        pool_recycle=pool_recycle,
+    )
+    return engine
 
 
 type AsyncSessionMaker = async_sessionmaker[AsyncSession]
 
 type ProcessName = Literal["app", "worker", "test", "migrations"]
 
+
 # Factory to create an AsyncEngine with settings derived from the application Settings
 # This function allows specifying the process name to differentiate connections from different parts of the application
-def create_async_engine(settings: Settings, process_name: ProcessName = "app", dsn: str | None = None) -> AsyncEngine:
+def create_async_engine(
+    settings: Settings, process_name: ProcessName = "app", dsn: str | None = None
+) -> AsyncEngine:
     return create_async_engine_core(
         dsn=dsn or str(settings.postgres_dsn),
         application_name=f"{settings.ENV.value}.{process_name}",
@@ -47,6 +66,7 @@ def create_async_engine(settings: Settings, process_name: ProcessName = "app", d
         pool_size=settings.DB_POOL_SIZE,
         pool_recycle=settings.DB_POOL_RECYCLE_SECONDS,
     )
+
 
 # Factory to create an AsyncSessionMaker bound to a given AsyncEngine
 # The AsyncSessionMaker is used to create AsyncSession instances for database interactions
@@ -58,6 +78,7 @@ def create_async_sessionmaker(engine: AsyncEngine) -> async_sessionmaker[AsyncSe
 # This function yields an AsyncSession and ensures proper commit or rollback based on whether an exception occurred
 from collections.abc import AsyncIterator
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
 
 # Async context manager to provide a database session
 # Ensures rollback on exception, commit otherwise, and always closes

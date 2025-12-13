@@ -183,6 +183,10 @@ def get_app(settings: Settings) -> FastAPI:
 
     app.include_router(auth_router)
 
+    @app.get("/health", include_in_schema=False)
+    async def health() -> dict[str, str]:
+        return {"status": "ok"}
+
     app.add_middleware(LogCorrelationIdMiddleware)
     app.add_middleware(
         CORSMiddleware,

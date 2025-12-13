@@ -34,6 +34,13 @@ dependencies = [
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
+[tool.poetry]
+# Ensure Poetry can locate the code when installing the project.
+# The package is named "src" and lives in the top-level ./src directory.
+packages = [
+    { include = "src", from = "." },
+]
+
 
 [dependency-groups]
 dev = [

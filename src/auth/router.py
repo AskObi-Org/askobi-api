@@ -1,13 +1,12 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.dependencies import get_db, get_current_user, require_active_user
 from src.schemas.auth import (
     LoginRequest,
     RegisterRequest,
-    TokenResponse,
-    RefreshRequest,
+    AccessTokenResponse,
     SessionResponse,
     UserResponse,
 )
@@ -15,8 +14,10 @@ from src.models.users import User
 from src.services.user_service import UserService
 from src.services.auth_service import AuthService
 from src.utils import tokens
+from src.settings import Settings
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+settings = Settings()
 
 
 @router.post(
@@ -31,10 +32,11 @@ async def register(
     return new_user
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=AccessTokenResponse)
 async def login(
     credentials: LoginRequest,
     request: Request,
+    response: Response,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """Authenticate user and create a new session."""
@@ -63,23 +65,54 @@ async def login(
         user=user, device_name=device_name, ip_address=ip_address, user_agent=user_agent
     )
 
-    return token_data
+    # Set refresh token as HTTP-only cookie
+    response.set_cookie(
+        key="refresh_token",
+        value=token_data["refresh_token"],
+        httponly=True,
+        secure=settings.is_production(),
+        samesite="lax",
+        max_age=settings.AUTH_JWT_REFRESH_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+
+    return {"access_token": token_data["access_token"], "token_type": "bearer"}
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post("/refresh", response_model=AccessTokenResponse)
 async def refresh(
-    refresh_data: RefreshRequest, db: Annotated[AsyncSession, Depends(get_db)]
+    request: Request, response: Response, db: Annotated[AsyncSession, Depends(get_db)]
 ):
-    """Refresh access and refresh tokens."""
+    """Refresh access token using refresh token from HTTP-only cookie."""
     auth_service = AuthService(db)
-    token_data = await auth_service.refresh_tokens(refresh_data.refresh_token)
-    return token_data
+
+    raw_refresh_token = request.cookies.get("refresh_token")
+    if not raw_refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing refresh token"
+        )
+
+    token_data = await auth_service.refresh_tokens(raw_refresh_token)
+
+    # Rotate cookie with new refresh token
+    response.set_cookie(
+        key="refresh_token",
+        value=token_data["refresh_token"],
+        httponly=True,
+        secure=settings.is_production(),
+        samesite="lax",
+        max_age=settings.AUTH_JWT_REFRESH_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+
+    return {"access_token": token_data["access_token"], "token_type": "bearer"}
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
     current_user: Annotated[User, Depends(require_active_user)],
     request: Request,
+    response: Response,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """Logout from current session."""
@@ -96,15 +129,21 @@ async def logout(
     if session_id:
         await auth_service.revoke_session(current_user.id, session_id)
 
+    # Clear refresh token cookie
+    response.delete_cookie(key="refresh_token", path="/")
+
 
 @router.post("/logout-all", status_code=status.HTTP_204_NO_CONTENT)
 async def logout_all(
     current_user: Annotated[User, Depends(require_active_user)],
+    response: Response,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """Logout from all sessions (panic button)."""
     auth_service = AuthService(db)
     await auth_service.revoke_all_sessions(current_user)
+    # Clear refresh token cookie for safety
+    response.delete_cookie(key="refresh_token", path="/")
 
 
 @router.get("/sessions", response_model=list[SessionResponse])

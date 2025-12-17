@@ -31,8 +31,13 @@ if config.config_file_name is not None and not config.get_main_option("no_logs")
 
 settings = Settings()
 
-target_metadata = Model.metadata  
-config.set_main_option("sqlalchemy.url", settings.postgres_dsn.replace("%", "%%"))
+target_metadata = Model.metadata
+
+# Add sslmode to the database URL
+db_url = f"{settings.postgres_dsn}"
+
+config.set_main_option("sqlalchemy.url", db_url.replace("%", "%%"))
+
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -54,11 +59,11 @@ def include_object(
             return True
     return True
 
+
 def render_item(type_: str, obj: Any, autogen_context: Any) -> str | Literal[False]:
     if isinstance(obj, PydanticJSON):
         return "postgresql.JSONB(astext_type=sa.Text())"
     return False
-    
 
 
 def run_migrations_offline() -> None:
@@ -86,6 +91,7 @@ def run_migrations_offline() -> None:
     with context.begin_transaction():
         context.run_migrations()
 
+
 def do_run_migrations(connection: Connection) -> None:
     context.configure(
         compare_type=True,
@@ -97,6 +103,7 @@ def do_run_migrations(connection: Connection) -> None:
 
     with context.begin_transaction():
         context.run_migrations()
+
 
 async def run_migrations_online() -> None:
     """Run migrations in 'online' mode.
@@ -120,7 +127,6 @@ async def run_migrations_online() -> None:
         await connection.run_sync(do_run_migrations)
 
     await connectable.dispose()
-
 
 
 if context.is_offline_mode():

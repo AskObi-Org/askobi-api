@@ -9,7 +9,6 @@ from pydantic import (
     PostgresDsn,
     ValidationInfo,
     field_validator,
-    BeforeValidator,
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from starlette.config import Config as StarletteConfig
@@ -98,11 +97,11 @@ class Settings(BaseSettings):
     def DATABASE_URL(self) -> PostgresDsn:
         return PostgresDsn.build(
             scheme="postgresql+asyncpg",
-            user=self.DB_USER,
+            username=self.DB_USER,
             password=self.DB_PASSWORD,
             host=self.DB_HOST,
-            port=str(self.DB_PORT),
-            path="/askobi_db",
+            port=int(self.DB_PORT),
+            path=f"/{self.DB_DATABASE}",
         )
 
     @property
@@ -163,7 +162,7 @@ class Settings(BaseSettings):
 
     @property
     def postgres_dsn(self) -> str:
-        return self.build_postgres_dsn()
+        return f"{self.build_postgres_dsn()}"
 
     def is_environment(self, envs: set[Environment]) -> bool:
         return self.ENV in envs

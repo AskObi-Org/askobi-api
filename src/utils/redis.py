@@ -23,14 +23,15 @@ async def get_redis_client() -> redis.Redis:
                 socket_connect_timeout=5,
                 socket_keepalive=True,
             )
-            logger.info("Initialized Redis connection pool", url=settings.redis_url)
+            # logger.info("Initialized Redis connection pool", url=settings.redis_url)
         except Exception as exc:  # noqa: BLE001
             logger.error(
                 "Failed to initialize Redis pool", url=settings.redis_url, exc_info=exc
             )
             raise
     client = redis.Redis(connection_pool=redis_pool)
-    logger.debug("Redis client ready", url=settings.redis_url)
+    # Logger debug removed to reduce noise
+    # logger.debug("Redis client ready", url=settings.redis_url)
     return client
 
 

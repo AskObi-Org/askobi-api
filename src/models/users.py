@@ -4,8 +4,16 @@ from typing import Any
 
 from advanced_alchemy.base import SQLQuery
 from sqlalchemy import (
-    TIMESTAMP, Boolean, Column, Integer, String,
-    MetaData,ForeignKey, UniqueConstraint,inspect,Text
+    TIMESTAMP,
+    Boolean,
+    Column,
+    Integer,
+    String,
+    MetaData,
+    ForeignKey,
+    UniqueConstraint,
+    inspect,
+    Text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, ARRAY
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship
@@ -20,15 +28,15 @@ from src.models.utils import *
 from src.utils.sqltypes import MutableModel
 
 
-
-
 class User(RecordModel):
     __tablename__ = "users"
 
     first_name: Mapped[str] = mapped_column(String, nullable=False)
     last_name: Mapped[str] = mapped_column(String, nullable=False)
     email: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
-    phone: Mapped[str | None] = mapped_column(String, unique=True, index=True, nullable=True)
+    phone: Mapped[str | None] = mapped_column(
+        String, unique=True, index=True, nullable=True
+    )
     is_verified: Mapped[bool] = mapped_column(default=False)
     is_active: Mapped[bool] = mapped_column(default=True)
     is_superuser: Mapped[bool] = mapped_column(default=False)
@@ -39,7 +47,7 @@ class User(RecordModel):
         "preferences",
         MutableModel(UserPreferences),
         default=UserPreferences,
-        server_default='{"theme": "system", "notifications": {"reminders": true, "health_tips": true}}'
+        server_default='{"theme": "system", "notifications": {"reminders": true, "health_tips": true}}',
     )
 
     sessions: Mapped[list["UserSession"]] = relationship(
@@ -49,23 +57,31 @@ class User(RecordModel):
         lazy="selectin",
     )
 
+
 class UserSession(RecordModel):
     """
     Tracks refresh-token sessions per device.
-    
+
     Redis stores the active session for fast lookup (< 1ms).
     This table is the source of truth for device management UI
     and allows enumeration of all sessions for a user.
     """
+
     __tablename__ = "user_sessions"
 
-    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id"), index=True, nullable=False
+    )
     user: Mapped["User"] = relationship("User", back_populates="sessions")
-    session_id: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
+    session_id: Mapped[str] = mapped_column(
+        String, unique=True, index=True, nullable=False
+    )
     refresh_token_hash: Mapped[str] = mapped_column(String, index=True, nullable=False)
     # Device metadata for "My Devices" UI
     device_name: Mapped[str | None] = mapped_column(String, nullable=True)
     ip_address: Mapped[str | None] = mapped_column(String, nullable=True)
     user_agent: Mapped[str | None] = mapped_column(String, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    expires_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )

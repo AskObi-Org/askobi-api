@@ -39,13 +39,13 @@ def create_async_engine_core(
         pool_size=pool_size,
         pool_recycle=pool_recycle,
     )
-    logger.info(
-        "Initialized database engine",
-        dsn=dsn,
-        application_name=application_name,
-        pool_size=pool_size,
-        pool_recycle=pool_recycle,
-    )
+    # logger.info(
+    #     "Initialized database engine",
+    #     dsn=dsn,
+    #     application_name=application_name,
+    #     pool_size=pool_size,
+    #     pool_recycle=pool_recycle,
+    # )
     return engine
 
 
